@@ -11,14 +11,13 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
-
 const app = express();
+
 app.use(
   cors({
-    origin: "http://localhost:3000", // Ensure frontend is allowed
+    origin: "http://localhost:3000", // Adjust to your frontend's port
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
+    credentials: true, // Allow cookies and authorization headers
   })
 );
 
@@ -27,10 +26,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 
 mongoose
-  .connect("mongodb://localhost:27017/home-web-app", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect("mongodb://localhost:27017/home-web-app")
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.log("Could not connect to MongoDB", err));
 
@@ -360,11 +356,18 @@ app.delete("/inventory/:id", async (req, res) => {
 // ======================= TASK CONTROLLER =======================
 
 // ADD Task
-app.post("/tasks", async (req, res) => {
+app.post("/addTasks", async (req, res) => {
   try {
-    const newTask = await Task.create({ taskId: uuidv4(), ...req.body });
+    console.log("Incoming Request Body:", req.body); // ✅ Debugging log
+
+    if (!req.body.title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+
+    const newTask = await Task.create(req.body);
     res.status(201).json(newTask);
   } catch (error) {
+    console.error("Error adding task:", error); // ✅ Add detailed logs
     res
       .status(500)
       .json({ message: "Error adding task", error: error.message });
@@ -372,19 +375,17 @@ app.post("/tasks", async (req, res) => {
 });
 
 // GET Task
-app.get("/tasks", async (req, res) => {
+app.get("/gettasks", async (req, res) => {
   try {
-    const tasks = await Task.find();
+    const tasks = await Task.find(); // Get all tasks
     res.json(tasks);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching tasks", error: error.message });
+    res.status(500).json({ error: "Failed to fetch tasks" });
   }
 });
 
 // UPDATE Task
-app.put("/tasks/:id", async (req, res) => {
+app.put("/updateTasks/:id", async (req, res) => {
   try {
     const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -400,7 +401,7 @@ app.put("/tasks/:id", async (req, res) => {
 });
 
 // DELETE Task
-app.delete("/tasks/:id", async (req, res) => {
+app.delete("/deleteTasks/:id", async (req, res) => {
   try {
     const deletedTask = await Task.findByIdAndDelete(req.params.id);
     if (!deletedTask)
