@@ -120,16 +120,25 @@ app.post("/login", async (req, res) => {
 // ======================= APPLIANCE CONTROLLER =======================
 
 app.post("/addAppliances", async (req, res) => {
+  const { name, brand, dateBought, nextMaintenanceDate } = req.body;
+
+  if (!name || !dateBought) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
   try {
-    const newAppliance = await Appliance.create({
-      applianceId: uuidv4(),
-      ...req.body,
+    const newAppliance = new Appliance({
+      name,
+      brand,
+      dateBought,
+      nextMaintenanceDate,
     });
+
+    await newAppliance.save();
     res.status(201).json(newAppliance);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error adding appliance", error: error.message });
+    console.error("Error adding appliance:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
