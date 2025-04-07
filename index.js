@@ -119,7 +119,7 @@ app.post("/login", async (req, res) => {
 
 // ======================= APPLIANCE CONTROLLER =======================
 
-app.post("/appliances", async (req, res) => {
+app.post("/addAppliances", async (req, res) => {
   try {
     const newAppliance = await Appliance.create({
       applianceId: uuidv4(),
@@ -133,7 +133,7 @@ app.post("/appliances", async (req, res) => {
   }
 });
 
-app.get("/appliances", async (req, res) => {
+app.get("/getAppliances", async (req, res) => {
   try {
     const appliances = await Appliance.find();
     res.json(appliances);
@@ -144,7 +144,7 @@ app.get("/appliances", async (req, res) => {
   }
 });
 
-app.put("/appliances/:id", async (req, res) => {
+app.put("/updateAppliances/:id", async (req, res) => {
   try {
     const updatedAppliance = await Appliance.findByIdAndUpdate(
       req.params.id,
@@ -161,7 +161,7 @@ app.put("/appliances/:id", async (req, res) => {
   }
 });
 
-app.delete("/appliances/:id", async (req, res) => {
+app.delete("/deleteAppliances/:id", async (req, res) => {
   try {
     const deletedAppliance = await Appliance.findByIdAndDelete(req.params.id);
     if (!deletedAppliance)
