@@ -185,32 +185,73 @@ app.delete("/deleteAppliances/:id", async (req, res) => {
 
 // ======================= BILL CONTROLLER =======================
 
-// ADD Bill
-app.post("/bills", async (req, res) => {
+// Add this to restore the endpoint with capital B
+app.post("/addBills", async (req, res) => {
   try {
+    console.log("POST /addBills endpoint hit with data:", req.body);
     const newBill = await Bill.create({ billId: uuidv4(), ...req.body });
     res.status(201).json(newBill);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error adding bill", error: error.message });
+    console.error("Error adding bill via /addBills:", error);
+    res.status(500).json({ message: "Error adding bill", error: error.message });
   }
 });
 
+
+
 // GET Bills
-app.get("/bills", async (req, res) => {
+app.get("/getBills", async (req, res) => {
+  console.log("GET /getBills endpoint hit");
   try {
     const bills = await Bill.find();
+    console.log("Bills found:", bills);
     res.json(bills);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching bills", error: error.message });
+    console.error("Error in /getBills:", error);
+    res.status(500).json({ message: "Error fetching bills", error: error.message });
+  }
+});
+
+
+
+// Update your /bills endpoint in index.js
+app.get("/bills", async (req, res) => {
+  try {
+    console.log("Fetching bills via /bills endpoint");
+    const bills = await Bill.find();
+    
+    // Enhance bills with user data
+    const enhancedBills = await Promise.all(bills.map(async (bill) => {
+      const billObj = bill.toObject();
+      
+      // Look up user by ID
+      if (bill.userId) {
+        try {
+          const user = await User.findById(bill.userId);
+          if (user) {
+            billObj.userDetails = {
+              name: user.fullName,
+              email: user.email
+            };
+          }
+        } catch (err) {
+          console.error(`Error looking up user for bill ${bill._id}:`, err);
+        }
+      }
+      
+      return billObj;
+    }));
+    
+    console.log("Enhanced bills:", JSON.stringify(enhancedBills.slice(0, 2), null, 2));
+    res.json(enhancedBills);
+  } catch (error) {
+    console.error("Error fetching bills:", error);
+    res.status(500).json({ message: "Error fetching bills", error: error.message });
   }
 });
 
 // UPDATE Bill
-app.put("/bills/:id", async (req, res) => {
+app.put("/updateBills/:id", async (req, res) => {
   try {
     const updatedBill = await Bill.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -226,7 +267,7 @@ app.put("/bills/:id", async (req, res) => {
 });
 
 // DELETE Bill
-app.delete("/bills/:id", async (req, res) => {
+app.delete("/deleteBills/:id", async (req, res) => {
   try {
     const deletedBill = await Bill.findByIdAndDelete(req.params.id);
     if (!deletedBill)
@@ -236,67 +277,6 @@ app.delete("/bills/:id", async (req, res) => {
     res
       .status(500)
       .json({ message: "Error deleting bill", error: error.message });
-  }
-});
-
-// ======================= EXPENSE CONTROLLER =======================
-
-// ADD Expense
-app.post("/expenses", async (req, res) => {
-  try {
-    const newExpense = await Expense.create({
-      expenseId: uuidv4(),
-      ...req.body,
-    });
-    res.status(201).json(newExpense);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error adding expense", error: error.message });
-  }
-});
-
-// GET Expenses
-app.get("/expenses", async (req, res) => {
-  try {
-    const expenses = await Expense.find();
-    res.json(expenses);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching expenses", error: error.message });
-  }
-});
-
-// UPDATE Expense
-app.put("/expenses/:id", async (req, res) => {
-  try {
-    const updatedExpense = await Expense.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    if (!updatedExpense)
-      return res.status(404).json({ message: "Expense not found" });
-    res.json(updatedExpense);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating expense", error: error.message });
-  }
-});
-
-// DELETE Expense
-app.delete("/expenses/:id", async (req, res) => {
-  try {
-    const deletedExpense = await Expense.findByIdAndDelete(req.params.id);
-    if (!deletedExpense)
-      return res.status(404).json({ message: "Expense not found" });
-    res.json(deletedExpense);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error deleting expense", error: error.message });
   }
 });
 
@@ -422,6 +402,26 @@ app.delete("/deleteTasks/:id", async (req, res) => {
       .json({ message: "Error deleting task", error: error.message });
   }
 });
+
+// Add this to your index.js file in the USER CONTROLLER section
+app.get("/getUsers", async (req, res) => {
+  try {
+    const userCount = await User.countDocuments();
+    console.log(`Found ${userCount} users in database`);
+    
+    // Only return necessary user info (not passwords)
+    const users = await User.find({}, 'fullName email _id');
+    console.log("Users found:", users);
+    
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Error fetching users", error: error.message });
+  }
+});
+
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is Running on ${PORT}`);
