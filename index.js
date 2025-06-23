@@ -29,7 +29,6 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
-mongoose
   mongoose
   .connect("mongodb+srv://shansilveo:silveo05@shansilveo.tpsrae8.mongodb.net/home-web-app?retryWrites=true&w=majority")
 
