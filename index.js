@@ -15,11 +15,15 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:3000", // Adjust to your frontend's port
+    origin: [
+      "http://localhost:3000",
+      "https://house-management-web-app-frontend.vercel.app"
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true, // Allow cookies and authorization headers
+    credentials: true,
   })
 );
+
 
 app.use(express.json());
 
