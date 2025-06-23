@@ -4,7 +4,7 @@ const cors = require("cors");
 const User = require("./models/user");
 const Task = require("./models/task");
 const Appliance = require("./models/appliance");
-const Expense = require("./models/expense");
+//const Expense = require("./models/expense");
 const Bill = require("./models/bill");
 const Inventory = require("./models/inventory");
 const bcrypt = require("bcrypt");
@@ -26,7 +26,9 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 
 mongoose
-  .connect("mongodb://localhost:27017/home-web-app")
+  mongoose
+  .connect("mongodb+srv://shansilveo:silveo05@shansilveo.tpsrae8.mongodb.net/home-web-app?retryWrites=true&w=majority")
+
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.log("Could not connect to MongoDB", err));
 
