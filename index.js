@@ -4,7 +4,7 @@ const cors = require("cors");
 const User = require("./models/user");
 const Task = require("./models/task");
 const Appliance = require("./models/appliance");
-const Expense = require("./models/expense");
+//const Expense = require("./models/expense");
 const Bill = require("./models/bill");
 const Inventory = require("./models/inventory");
 const bcrypt = require("bcrypt");
@@ -18,7 +18,7 @@ app.use(
   cors({
     origin: "http://localhost:3000", // Adjust to your frontend's port
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true, // Allow cookies and authorization headers
+    credentials: true,
   })
 );
 
