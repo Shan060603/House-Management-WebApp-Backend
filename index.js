@@ -12,6 +12,7 @@ const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
 const app = express();
+const authenticateToken = require("./auth");
 
 app.use(
   cors({
@@ -32,9 +33,9 @@ mongoose
 
 // ======================= Helper Functions =======================
 
-const SECRET_KEY = "your_secret_key";
-const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS);
-const jwtSecret = process.env.JWT_SECRET;
+const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
+const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10; // Default to 10 if not defined
+const jwtSecret = process.env.JWT_SECRET || "default_jwt_secret"; // Default secret key
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -101,11 +102,11 @@ app.post("/login", async (req, res) => {
     if (!isPasswordValid)
       return res.status(401).json({ message: "Invalid credentials" });
 
-    // Generate token (e.g., 1-hour expiry)
+    // Generate token (e.g., 2-hour expiry)
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "2h" } // Set to 2 hours
     );
 
     res.json({
@@ -119,21 +120,20 @@ app.post("/login", async (req, res) => {
 
 // ======================= APPLIANCE CONTROLLER =======================
 
-app.post("/addAppliances", async (req, res) => {
-  const { name, brand, dateBought, nextMaintenanceDate } = req.body;
-
-  if (!name || !dateBought) {
-    return res.status(400).json({ message: "Missing required fields" });
-  }
-
+app.post("/addAppliances", authenticateToken, async (req, res) => {
   try {
+    const userId = req.user.id;
+    const { name, brand, dateBought, nextMaintenanceDate } = req.body;
+    if (!name || !dateBought) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
     const newAppliance = new Appliance({
       name,
       brand,
       dateBought,
       nextMaintenanceDate,
+      userId,
     });
-
     await newAppliance.save();
     res.status(201).json(newAppliance);
   } catch (error) {
@@ -142,9 +142,10 @@ app.post("/addAppliances", async (req, res) => {
   }
 });
 
-app.get("/getAppliances", async (req, res) => {
+app.get("/getAppliances", authenticateToken, async (req, res) => {
   try {
-    const appliances = await Appliance.find();
+    const userId = req.user.id;
+    const appliances = await Appliance.find({ userId });
     res.json(appliances);
   } catch (error) {
     res
@@ -153,28 +154,49 @@ app.get("/getAppliances", async (req, res) => {
   }
 });
 
-app.put("/updateAppliances/:id", async (req, res) => {
+// Update an appliance
+app.put("/updateAppliance/:id", authenticateToken, async (req, res) => {
   try {
-    const updatedAppliance = await Appliance.findByIdAndUpdate(
-      req.params.id,
-      req.body,
+    const userId = req.user.id;
+    const updatedData = { ...req.body };
+    if (updatedData.dateBought) {
+      updatedData.dateBought = new Date(updatedData.dateBought);
+    }
+    if (updatedData.nextMaintenanceDate) {
+      updatedData.nextMaintenanceDate = new Date(
+        updatedData.nextMaintenanceDate
+      );
+    }
+    const updatedAppliance = await Appliance.findOneAndUpdate(
+      { _id: req.params.id, userId },
+      updatedData,
       { new: true }
     );
-    if (!updatedAppliance)
-      return res.status(404).json({ message: "Appliance not found" });
+    if (!updatedAppliance) {
+      return res
+        .status(404)
+        .json({ message: "Appliance not found or not authorized" });
+    }
     res.json(updatedAppliance);
   } catch (error) {
+    console.error("Error updating in backend:", error);
     res
-      .status(500)
+      .status(400)
       .json({ message: "Error updating appliance", error: error.message });
   }
 });
 
-app.delete("/deleteAppliances/:id", async (req, res) => {
+app.delete("/deleteAppliances/:id", authenticateToken, async (req, res) => {
   try {
-    const deletedAppliance = await Appliance.findByIdAndDelete(req.params.id);
+    const userId = req.user.id;
+    const deletedAppliance = await Appliance.findOneAndDelete({
+      _id: req.params.id,
+      userId,
+    });
     if (!deletedAppliance)
-      return res.status(404).json({ message: "Appliance not found" });
+      return res
+        .status(404)
+        .json({ message: "Appliance not found or not authorized" });
     res.json(deletedAppliance);
   } catch (error) {
     res
@@ -186,9 +208,10 @@ app.delete("/deleteAppliances/:id", async (req, res) => {
 // ======================= BILL CONTROLLER =======================
 
 // ADD Bill
-app.post("/bills", async (req, res) => {
+app.post("/addBills", authenticateToken, async (req, res) => {
   try {
-    const newBill = await Bill.create({ billId: uuidv4(), ...req.body });
+    const userId = req.user.id;
+    const newBill = await Bill.create({ ...req.body, userId });
     res.status(201).json(newBill);
   } catch (error) {
     res
@@ -198,9 +221,10 @@ app.post("/bills", async (req, res) => {
 });
 
 // GET Bills
-app.get("/bills", async (req, res) => {
+app.get("/getBills", authenticateToken, async (req, res) => {
   try {
-    const bills = await Bill.find();
+    const userId = req.user.id;
+    const bills = await Bill.find({ userId });
     res.json(bills);
   } catch (error) {
     res
@@ -210,13 +234,18 @@ app.get("/bills", async (req, res) => {
 });
 
 // UPDATE Bill
-app.put("/bills/:id", async (req, res) => {
+app.put("/updateBills/:id", authenticateToken, async (req, res) => {
   try {
-    const updatedBill = await Bill.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const userId = req.user.id;
+    const updatedBill = await Bill.findOneAndUpdate(
+      { _id: req.params.id, userId },
+      req.body,
+      { new: true }
+    );
     if (!updatedBill)
-      return res.status(404).json({ message: "Bill not found" });
+      return res
+        .status(404)
+        .json({ message: "Bill not found or not authorized" });
     res.json(updatedBill);
   } catch (error) {
     res
@@ -226,11 +255,17 @@ app.put("/bills/:id", async (req, res) => {
 });
 
 // DELETE Bill
-app.delete("/bills/:id", async (req, res) => {
+app.delete("/deleteBills/:id", authenticateToken, async (req, res) => {
   try {
-    const deletedBill = await Bill.findByIdAndDelete(req.params.id);
+    const userId = req.user.id;
+    const deletedBill = await Bill.findOneAndDelete({
+      _id: req.params.id,
+      userId,
+    });
     if (!deletedBill)
-      return res.status(404).json({ message: "Bill not found" });
+      return res
+        .status(404)
+        .json({ message: "Bill not found or not authorized" });
     res.json(deletedBill);
   } catch (error) {
     res
@@ -241,12 +276,13 @@ app.delete("/bills/:id", async (req, res) => {
 
 // ======================= EXPENSE CONTROLLER =======================
 
-// ADD Expense
-app.post("/expenses", async (req, res) => {
+app.post("/expenses", authenticateToken, async (req, res) => {
   try {
+    const userId = req.user.id;
     const newExpense = await Expense.create({
       expenseId: uuidv4(),
       ...req.body,
+      userId,
     });
     res.status(201).json(newExpense);
   } catch (error) {
@@ -256,10 +292,10 @@ app.post("/expenses", async (req, res) => {
   }
 });
 
-// GET Expenses
-app.get("/expenses", async (req, res) => {
+app.get("/expenses", authenticateToken, async (req, res) => {
   try {
-    const expenses = await Expense.find();
+    const userId = req.user.id;
+    const expenses = await Expense.find({ userId });
     res.json(expenses);
   } catch (error) {
     res
@@ -268,16 +304,18 @@ app.get("/expenses", async (req, res) => {
   }
 });
 
-// UPDATE Expense
-app.put("/expenses/:id", async (req, res) => {
+app.put("/expenses/:id", authenticateToken, async (req, res) => {
   try {
-    const updatedExpense = await Expense.findByIdAndUpdate(
-      req.params.id,
+    const userId = req.user.id;
+    const updatedExpense = await Expense.findOneAndUpdate(
+      { _id: req.params.id, userId },
       req.body,
       { new: true }
     );
     if (!updatedExpense)
-      return res.status(404).json({ message: "Expense not found" });
+      return res
+        .status(404)
+        .json({ message: "Expense not found or not authorized" });
     res.json(updatedExpense);
   } catch (error) {
     res
@@ -286,12 +324,17 @@ app.put("/expenses/:id", async (req, res) => {
   }
 });
 
-// DELETE Expense
-app.delete("/expenses/:id", async (req, res) => {
+app.delete("/expenses/:id", authenticateToken, async (req, res) => {
   try {
-    const deletedExpense = await Expense.findByIdAndDelete(req.params.id);
+    const userId = req.user.id;
+    const deletedExpense = await Expense.findOneAndDelete({
+      _id: req.params.id,
+      userId,
+    });
     if (!deletedExpense)
-      return res.status(404).json({ message: "Expense not found" });
+      return res
+        .status(404)
+        .json({ message: "Expense not found or not authorized" });
     res.json(deletedExpense);
   } catch (error) {
     res
@@ -302,12 +345,13 @@ app.delete("/expenses/:id", async (req, res) => {
 
 // ======================= INVENTORY CONTROLLER =======================
 
-// ADD Inventory
-app.post("/inventory", async (req, res) => {
+app.post("/inventory", authenticateToken, async (req, res) => {
   try {
+    const userId = req.user.id;
     const newItem = await Inventory.create({
       inventoryId: uuidv4(),
       ...req.body,
+      userId,
     });
     res.status(201).json(newItem);
   } catch (error) {
@@ -317,10 +361,10 @@ app.post("/inventory", async (req, res) => {
   }
 });
 
-// GET Inventory
-app.get("/inventory", async (req, res) => {
+app.get("/inventory", authenticateToken, async (req, res) => {
   try {
-    const items = await Inventory.find();
+    const userId = req.user.id;
+    const items = await Inventory.find({ userId });
     res.json(items);
   } catch (error) {
     res.status(500).json({
@@ -330,16 +374,18 @@ app.get("/inventory", async (req, res) => {
   }
 });
 
-// UPDATE Inventory
-app.put("/inventory/:id", async (req, res) => {
+app.put("/inventory/:id", authenticateToken, async (req, res) => {
   try {
-    const updatedItem = await Inventory.findByIdAndUpdate(
-      req.params.id,
+    const userId = req.user.id;
+    const updatedItem = await Inventory.findOneAndUpdate(
+      { _id: req.params.id, userId },
       req.body,
       { new: true }
     );
     if (!updatedItem)
-      return res.status(404).json({ message: "Inventory item not found" });
+      return res
+        .status(404)
+        .json({ message: "Inventory item not found or not authorized" });
     res.json(updatedItem);
   } catch (error) {
     res
@@ -348,12 +394,17 @@ app.put("/inventory/:id", async (req, res) => {
   }
 });
 
-// DELETE Inventory
-app.delete("/inventory/:id", async (req, res) => {
+app.delete("/inventory/:id", authenticateToken, async (req, res) => {
   try {
-    const deletedItem = await Inventory.findByIdAndDelete(req.params.id);
+    const userId = req.user.id;
+    const deletedItem = await Inventory.findOneAndDelete({
+      _id: req.params.id,
+      userId,
+    });
     if (!deletedItem)
-      return res.status(404).json({ message: "Inventory item not found" });
+      return res
+        .status(404)
+        .json({ message: "Inventory item not found or not authorized" });
     res.json(deletedItem);
   } catch (error) {
     res
@@ -365,18 +416,16 @@ app.delete("/inventory/:id", async (req, res) => {
 // ======================= TASK CONTROLLER =======================
 
 // ADD Task
-app.post("/addTasks", async (req, res) => {
+app.post("/addTasks", authenticateToken, async (req, res) => {
   try {
-    console.log("Incoming Request Body:", req.body); // ✅ Debugging log
-
-    if (!req.body.title) {
-      return res.status(400).json({ message: "Title is required" });
-    }
-
-    const newTask = await Task.create(req.body);
+    const userId = req.user.id;
+    // Ensure description is always an array
+    const description = Array.isArray(req.body.description)
+      ? req.body.description
+      : [req.body.description || ""];
+    const newTask = await Task.create({ ...req.body, description, userId });
     res.status(201).json(newTask);
   } catch (error) {
-    console.error("Error adding task:", error); // ✅ Add detailed logs
     res
       .status(500)
       .json({ message: "Error adding task", error: error.message });
@@ -384,23 +433,31 @@ app.post("/addTasks", async (req, res) => {
 });
 
 // GET Task
-app.get("/gettasks", async (req, res) => {
+app.get("/getTasks", authenticateToken, async (req, res) => {
   try {
-    const tasks = await Task.find(); // Get all tasks
+    const userId = req.user.id;
+    const tasks = await Task.find({ userId });
     res.json(tasks);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch tasks" });
+    res
+      .status(500)
+      .json({ message: "Error fetching tasks", error: error.message });
   }
 });
 
 // UPDATE Task
-app.put("/updateTasks/:id", async (req, res) => {
+app.put("/updateTasks/:id", authenticateToken, async (req, res) => {
   try {
-    const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const userId = req.user.id;
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: req.params.id, userId },
+      req.body,
+      { new: true }
+    );
     if (!updatedTask)
-      return res.status(404).json({ message: "Task not found" });
+      return res
+        .status(404)
+        .json({ message: "Task not found or not authorized" });
     res.json(updatedTask);
   } catch (error) {
     res
@@ -410,11 +467,17 @@ app.put("/updateTasks/:id", async (req, res) => {
 });
 
 // DELETE Task
-app.delete("/deleteTasks/:id", async (req, res) => {
+app.delete("/deleteTasks/:id", authenticateToken, async (req, res) => {
   try {
-    const deletedTask = await Task.findByIdAndDelete(req.params.id);
+    const userId = req.user.id;
+    const deletedTask = await Task.findOneAndDelete({
+      _id: req.params.id,
+      userId,
+    });
     if (!deletedTask)
-      return res.status(404).json({ message: "Task not found" });
+      return res
+        .status(404)
+        .json({ message: "Task not found or not authorized" });
     res.json(deletedTask);
   } catch (error) {
     res
