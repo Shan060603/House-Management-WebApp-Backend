@@ -13,6 +13,22 @@ const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
 const app = express();
 const authenticateToken = require("./auth");
+const multer = require("multer");
+const path = require("path");
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/"); // Make sure this directory exists
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + ext);
+  },
+});
+const upload = multer({ storage });
+
+// Serve uploaded images
+app.use("/uploads", express.static("uploads"));
 
 app.use(
   cors({
@@ -30,6 +46,14 @@ mongoose
   .connect("mongodb://localhost:27017/home-web-app")
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.log("Could not connect to MongoDB", err));
+
+// Add top-level error handlers for debugging
+process.on("uncaughtException", function (err) {
+  console.error("Uncaught Exception:", err);
+});
+process.on("unhandledRejection", function (err) {
+  console.error("Unhandled Rejection:", err);
+});
 
 // ======================= Helper Functions =======================
 
@@ -55,9 +79,22 @@ const hashPassword = async (password) => {
 // ======================= USER CONTROLLER =======================
 
 // REGISTER
-app.post("/register", async (req, res) => {
+app.post("/register", upload.single("image"), async (req, res) => {
   try {
-    const { fullName, email, password, role } = req.body;
+    console.log("Register req.body:", req.body);
+    console.log("Register req.file:", req.file);
+    const {
+      fullName,
+      email,
+      password,
+      role,
+      address = "",
+      work = "",
+    } = req.body;
+    let image = "";
+    if (req.file) {
+      image = `/uploads/${req.file.filename}`;
+    }
 
     // Check for existing user
     const existingUser = await User.findOne({ email });
@@ -70,11 +107,13 @@ app.post("/register", async (req, res) => {
 
     // Create new user
     const newUser = await User.create({
-      userId: uuidv4(),
       fullName,
       email,
       password: hashedPassword,
       role,
+      address,
+      work,
+      image,
     });
 
     res.status(201).json({ success: true, user: newUser });
@@ -115,6 +154,98 @@ app.post("/login", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Error logging in", error: error.message });
+  }
+});
+
+// Get current user profile
+app.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error fetching user", error: error.message });
+  }
+});
+
+// Update user profile
+app.put(
+  "/user/:id",
+  authenticateToken,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const { fullName, address, work } = req.body;
+      let updateFields = {};
+      if (fullName) updateFields.fullName = fullName;
+      if (address) updateFields.address = address;
+      if (work) updateFields.work = work;
+      if (req.file) {
+        updateFields.image = `/uploads/${req.file.filename}`;
+      }
+      const updatedUser = await User.findByIdAndUpdate(
+        req.params.id,
+        { $set: updateFields },
+        { new: true }
+      );
+      if (!updatedUser)
+        return res.status(404).json({ message: "User not found" });
+      res.json(updatedUser);
+    } catch (error) {
+      res
+        .status(500)
+        .json({ message: "Error updating user", error: error.message });
+    }
+  }
+);
+
+// Change password
+app.put("/user/:id/password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "Current and new password required" });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch)
+      return res.status(401).json({ message: "Current password is incorrect" });
+    user.password = await hashPassword(newPassword);
+    await user.save();
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error updating password", error: error.message });
+  }
+});
+
+// Update email
+app.put("/user/:id/email", authenticateToken, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    if (!newEmail)
+      return res.status(400).json({ message: "New email required" });
+    const existing = await User.findOne({ email: newEmail });
+    if (existing)
+      return res.status(409).json({ message: "Email already in use" });
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { email: newEmail } },
+      { new: true }
+    );
+    if (!updatedUser)
+      return res.status(404).json({ message: "User not found" });
+    res.json(updatedUser);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error updating email", error: error.message });
   }
 });
 
