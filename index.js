@@ -51,10 +51,7 @@ app.use(express.json()); // <-- ADD THIS
 app.use(express.urlencoded({ extended: true })); // <-- AND THIS
 
 //Offline
-/*const PORT = process.env.PORT || 3001;*/
-
-//Online
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
 //offline
 /* mongoose
@@ -63,10 +60,12 @@ const PORT = process.env.PORT || 5000;
   .catch((err) => console.log("Could not connect to MongoDB", err)); */
 
 //online
-mongoose
-  .connect("mongodb+srv://shansilveo:silveo05@shansilveo.tpsrae8.mongodb.net/?retryWrites=true&w=majority&appName=shansilveo")
-  .then(() => console.log("Connected to MongoDB Atlas"))
-  .catch((err) => console.log("Could not connect to MongoDB Atlas", err));
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log("Connected to MongoDB Atlas"))
+.catch((err) => console.error("MongoDB connection error:", err));
 
 
 // Add top-level error handlers for debugging
