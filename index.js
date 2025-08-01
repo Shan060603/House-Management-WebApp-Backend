@@ -180,26 +180,40 @@ app.post("/register", upload.single("image"), async (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
+
+  console.log("Login attempt for:", email);
+
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: new RegExp(`^${email}$`, 'i') }); // Case-insensitive
+
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(400).json({ message: "User not found" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid password" });
+      return res.status(400).json({ message: "Incorrect password" });
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1d",
     });
 
-    res.status(200).json({ token, user });
+    res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
-    res.status(500).json({ message: "Login error", error: err.message });
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // Get current user profile
 app.get("/me", authenticateToken, async (req, res) => {
