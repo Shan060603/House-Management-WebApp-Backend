@@ -182,7 +182,7 @@ app.post("/register", upload.single("image"), async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await UserModel.findOne({ email });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
