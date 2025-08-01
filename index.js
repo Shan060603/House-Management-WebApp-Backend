@@ -179,40 +179,37 @@ app.post("/register", upload.single("image"), async (req, res) => {
 });*/
 
 app.post("/login", async (req, res) => {
+  console.log("🚀 Incoming Login Payload:", req.body);
   const { email, password } = req.body;
-
-  console.log("Login attempt for:", email);
-
   try {
-    const user = await User.findOne({ email: new RegExp(`^${email}$`, 'i') }); // Case-insensitive
+    console.log("Looking for user email in DB:", email);
+    const user = await User.findOne({ email: new RegExp(`^${email}$`, "i") }); // case‑insensitive
 
     if (!user) {
+      console.log("🔎 User not found:", email);
       return res.status(400).json({ message: "User not found" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log("❌ Password mismatch for user:", email);
       return res.status(400).json({ message: "Incorrect password" });
     }
 
+    console.log("✅ Login success for:", email);
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1d",
     });
-
     res.status(200).json({
       token,
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-      },
+      user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role },
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Login handler error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 // Get current user profile
