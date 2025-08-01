@@ -30,13 +30,21 @@ const upload = multer({ storage });
 // Serve uploaded images
 app.use("/uploads", express.static("uploads"));
 
-app.use(
+//Offline
+/*app.use(
   cors({
     origin: "http://localhost:3000", // Adjust to your frontend's port
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
-);
+); */
+
+//Online
+app.use(cors({
+  origin: [ 'https://house-management-web-app-frontend-qjymcy8ry.vercel.app' ],
+  credentials: true
+}));
+
 
 app.use(express.json());
 
