@@ -179,36 +179,55 @@ app.post("/register", upload.single("image"), async (req, res) => {
 });*/
 
 app.post("/login", async (req, res) => {
-  console.log("🚀 Incoming Login Payload:", req.body);
-  const { email, password } = req.body;
   try {
-    console.log("Looking for user email in DB:", email);
-    const user = await User.findOne({ email: new RegExp(`^${email}$`, "i") }); // case‑insensitive
+    const { email, password } = req.body;
+
+    // Sanitize and log input
+    const trimmedEmail = email.trim();
+    console.log("🚀 Incoming Login Payload:", { email: trimmedEmail, password });
+
+    // Case-insensitive email match
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${trimmedEmail}$`, "i") }
+    });
+
+    console.log("🔍 Searching for user:", trimmedEmail);
 
     if (!user) {
-      console.log("🔎 User not found:", email);
+      console.log("❌ User not found:", trimmedEmail);
       return res.status(400).json({ message: "User not found" });
     }
 
+    // Compare hashed password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log("❌ Password mismatch for user:", email);
-      return res.status(400).json({ message: "Incorrect password" });
+      console.log("❌ Invalid password for user:", trimmedEmail);
+      return res.status(400).json({ message: "Invalid password" });
     }
 
-    console.log("✅ Login success for:", email);
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    // Generate token
+    const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: "1d",
     });
-    res.status(200).json({
+
+    console.log("✅ Login successful:", user.email);
+
+    res.json({
+      message: "Login successful",
       token,
-      user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+      },
     });
   } catch (err) {
-    console.error("Login handler error:", err);
+    console.error("💥 Login error:", err.message);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 
