@@ -42,10 +42,18 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
-mongoose
+//offline
+/* mongoose
   .connect("mongodb://localhost:27017/home-web-app")
   .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.log("Could not connect to MongoDB", err));
+  .catch((err) => console.log("Could not connect to MongoDB", err)); */
+
+//online
+mongoose
+  .connect("mongodb+srv://shansilveo:silveo05@shansilveo.tpsrae8.mongodb.net/home-web-app?retryWrites=true&w=majority")
+  .then(() => console.log("Connected to MongoDB Atlas"))
+  .catch((err) => console.log("Could not connect to MongoDB Atlas", err));
+
 
 // Add top-level error handlers for debugging
 process.on("uncaughtException", function (err) {
