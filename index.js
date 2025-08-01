@@ -40,14 +40,23 @@ app.use("/uploads", express.static("uploads"));
 ); */
 
 //Online
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://house-management-web-app-fronte.vercel.app',
+  'https://house-management-web-app-fronte-git-7144e6-shan060603s-projects.vercel.app'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://house-management-web-app-fronte-git-7144e6-shan060603s-projects.vercel.app',
-    'https://house-management-web-app-fronte.vercel.app'
-  ],
-  credentials: true,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
 }));
+
 
 
 app.use(express.json());
