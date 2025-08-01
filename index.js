@@ -41,8 +41,12 @@ app.use("/uploads", express.static("uploads"));
 
 //Online
 app.use(cors({
-  origin: [ 'https://house-management-web-app-frontend-qjymcy8ry.vercel.app' ],
-  credentials: true
+  origin: [
+    'http://localhost:3000',
+    'https://house-management-web-app-fronte-git-7144e6-shan060603s-projects.vercel.app',
+    'https://house-management-web-app-fronte.vercel.app'
+  ],
+  credentials: true,
 }));
 
 
