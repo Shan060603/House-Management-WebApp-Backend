@@ -47,7 +47,8 @@ app.use(cors({
   ],
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json()); // <-- ADD THIS
+app.use(express.urlencoded({ extended: true })); // <-- AND THIS
 
 //Offline
 /*const PORT = process.env.PORT || 3001;*/
@@ -147,7 +148,7 @@ app.post("/register", upload.single("image"), async (req, res) => {
 });
 
 // LOGIN
-app.post("/login", async (req, res) => {
+/*app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -175,6 +176,29 @@ app.post("/login", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Error logging in", error: error.message });
+  }
+});*/
+
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
+    res.status(200).json({ token, user });
+  } catch (err) {
+    res.status(500).json({ message: "Login error", error: err.message });
   }
 });
 
