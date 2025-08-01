@@ -62,7 +62,7 @@ const PORT = process.env.PORT || 5000;
 
 //online
 mongoose
-  .connect("mongodb+srv://shansilveo:<db_password>@shansilveo.tpsrae8.mongodb.net/?retryWrites=true&w=majority&appName=shansilveo")
+  .connect("mongodb+srv://shansilveo:silveo05@shansilveo.tpsrae8.mongodb.net/?retryWrites=true&w=majority&appName=shansilveo")
   .then(() => console.log("Connected to MongoDB Atlas"))
   .catch((err) => console.log("Could not connect to MongoDB Atlas", err));
 
