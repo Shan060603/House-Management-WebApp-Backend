@@ -30,22 +30,43 @@ const upload = multer({ storage });
 // Serve uploaded images
 app.use("/uploads", express.static("uploads"));
 
-app.use(
+//Offline
+/*app.use(
   cors({
     origin: "http://localhost:3000", // Adjust to your frontend's port
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
-);
+); */
 
-app.use(express.json());
+//Online
+app.use(cors({
+  origin: [
+    'https://house-management-web-app-fronte-git-7144e6-shan060603s-projects.vercel.app',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+}));
+app.use(express.json()); // <-- ADD THIS
+app.use(express.urlencoded({ extended: true })); // <-- AND THIS
 
+//Offline
 const PORT = process.env.PORT || 3001;
 
-mongoose
+//offline
+/* mongoose
   .connect("mongodb://localhost:27017/home-web-app")
   .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.log("Could not connect to MongoDB", err));
+  .catch((err) => console.log("Could not connect to MongoDB", err)); */
+
+//online
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log("Connected to MongoDB Atlas"))
+.catch((err) => console.error("MongoDB connection error:", err));
+
 
 // Add top-level error handlers for debugging
 process.on("uncaughtException", function (err) {
@@ -126,7 +147,7 @@ app.post("/register", upload.single("image"), async (req, res) => {
 });
 
 // LOGIN
-app.post("/login", async (req, res) => {
+/*app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -155,7 +176,60 @@ app.post("/login", async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error logging in", error: error.message });
   }
+});*/
+
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Sanitize and log input
+    const trimmedEmail = email.trim();
+    console.log("🚀 Incoming Login Payload:", { email: trimmedEmail, password });
+
+    // Case-insensitive email match
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${trimmedEmail}$`, "i") }
+    });
+
+    console.log("🔍 Searching for user:", trimmedEmail);
+
+    if (!user) {
+      console.log("❌ User not found:", trimmedEmail);
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    // Compare hashed password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      console.log("❌ Invalid password for user:", trimmedEmail);
+      return res.status(400).json({ message: "Invalid password" });
+    }
+
+    // Generate token
+    const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
+    console.log("✅ Login successful:", user.email);
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+      },
+    });
+  } catch (err) {
+    console.error("💥 Login error:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
 });
+
+
+
 
 // Get current user profile
 app.get("/me", authenticateToken, async (req, res) => {
