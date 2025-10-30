@@ -4,7 +4,6 @@ const cors = require("cors");
 const User = require("./models/user");
 const Task = require("./models/task");
 const Appliance = require("./models/appliance");
-//const Expense = require("./models/expense");
 const Bill = require("./models/bill");
 const Inventory = require("./models/inventory");
 const bcrypt = require("bcrypt");
@@ -31,42 +30,44 @@ const upload = multer({ storage });
 app.use("/uploads", express.static("uploads"));
 
 //Offline
-/*app.use(
+app.use(
   cors({
     origin: "http://localhost:3000", // Adjust to your frontend's port
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
-); */
+);
 
 //Online
-app.use(cors({
-  origin: [
-    'https://house-management-web-app-fronte-git-7144e6-shan060603s-projects.vercel.app',
-    'http://localhost:3000'
-  ],
-  credentials: true,
-}));
+/*app.use(
+  cors({
+    origin: [
+      "https://house-management-web-app-fronte-git-7144e6-shan060603s-projects.vercel.app",
+      "http://localhost:3000",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json()); // <-- ADD THIS
-app.use(express.urlencoded({ extended: true })); // <-- AND THIS
+app.use(express.urlencoded({ extended: true })); // <-- AND THIS */
 
 //Offline
 const PORT = process.env.PORT || 3001;
 
 //offline
-/* mongoose
+mongoose
   .connect("mongodb://localhost:27017/home-web-app")
   .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.log("Could not connect to MongoDB", err)); */
+  .catch((err) => console.log("Could not connect to MongoDB", err));
 
 //online
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log("Connected to MongoDB Atlas"))
-.catch((err) => console.error("MongoDB connection error:", err));
-
+/*mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("Connected to MongoDB Atlas"))
+  .catch((err) => console.error("MongoDB connection error:", err)); */
 
 // Add top-level error handlers for debugging
 process.on("uncaughtException", function (err) {
@@ -184,11 +185,14 @@ app.post("/login", async (req, res) => {
 
     // Sanitize and log input
     const trimmedEmail = email.trim();
-    console.log("🚀 Incoming Login Payload:", { email: trimmedEmail, password });
+    console.log("🚀 Incoming Login Payload:", {
+      email: trimmedEmail,
+      password,
+    });
 
     // Case-insensitive email match
     const user = await User.findOne({
-      email: { $regex: new RegExp(`^${trimmedEmail}$`, "i") }
+      email: { $regex: new RegExp(`^${trimmedEmail}$`, "i") },
     });
 
     console.log("🔍 Searching for user:", trimmedEmail);
@@ -206,9 +210,13 @@ app.post("/login", async (req, res) => {
     }
 
     // Generate token
-    const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1d",
+      }
+    );
 
     console.log("✅ Login successful:", user.email);
 
@@ -227,9 +235,6 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
 
 // Get current user profile
 app.get("/me", authenticateToken, async (req, res) => {
