@@ -69,7 +69,7 @@ const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10;
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
+    { userId: user._id, email: user.email, role: user.role },
     SECRET_KEY,
     { expiresIn: "1h" }
   );
@@ -164,7 +164,7 @@ app.post("/login", async (req, res) => {
 
     // Use fallback for JWT secret
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      { userId: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET || "default_jwt_secret",
       { expiresIn: "1d" }
     );
@@ -312,7 +312,7 @@ app.put("/user/:id/email", authenticateToken, async (req, res) => {
 app.post("/addAppliances", authenticateToken, async (req, res) => {
   try {
     console.log("➡️ [ADD APPLIANCE] req.body:", req.body);
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { name, brand, dateBought, nextMaintenanceDate } = req.body;
     if (!name || !dateBought) {
       console.warn("⚠️ [ADD APPLIANCE] Missing required fields");
@@ -336,7 +336,7 @@ app.post("/addAppliances", authenticateToken, async (req, res) => {
 
 app.get("/getAppliances", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const appliances = await Appliance.find({ userId });
     res.json(appliances);
   } catch (error) {
@@ -350,7 +350,7 @@ app.get("/getAppliances", authenticateToken, async (req, res) => {
 app.put("/updateAppliance/:id", authenticateToken, async (req, res) => {
   try {
     console.log("➡️ [UPDATE APPLIANCE] req.body:", req.body);
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const updatedData = { ...req.body };
     if (updatedData.dateBought) {
       updatedData.dateBought = new Date(updatedData.dateBought);
@@ -383,7 +383,7 @@ app.put("/updateAppliance/:id", authenticateToken, async (req, res) => {
 
 app.delete("/deleteAppliances/:id", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const deletedAppliance = await Appliance.findOneAndDelete({
       _id: req.params.id,
       userId,
@@ -409,7 +409,7 @@ app.delete("/deleteAppliances/:id", authenticateToken, async (req, res) => {
 app.post("/addBills", authenticateToken, async (req, res) => {
   try {
     console.log("➡️ [ADD BILL] req.body:", req.body);
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const newBill = await Bill.create({ ...req.body, userId });
     console.log("✅ [ADD BILL] Added");
     res.status(201).json(newBill);
@@ -423,7 +423,7 @@ app.post("/addBills", authenticateToken, async (req, res) => {
 
 app.get("/getBills", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const bills = await Bill.find({ userId });
     res.json(bills);
   } catch (error) {
@@ -437,7 +437,7 @@ app.get("/getBills", authenticateToken, async (req, res) => {
 app.put("/updateBills/:id", authenticateToken, async (req, res) => {
   try {
     console.log("➡️ [UPDATE BILL] req.body:", req.body);
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const updatedBill = await Bill.findOneAndUpdate(
       { _id: req.params.id, userId },
       req.body,
@@ -461,7 +461,7 @@ app.put("/updateBills/:id", authenticateToken, async (req, res) => {
 
 app.delete("/deleteBills/:id", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const deletedBill = await Bill.findOneAndDelete({
       _id: req.params.id,
       userId,
@@ -482,94 +482,12 @@ app.delete("/deleteBills/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// ======================= EXPENSE CONTROLLER =======================
-
-app.post("/expenses", authenticateToken, async (req, res) => {
-  try {
-    console.log("➡️ [ADD EXPENSE] req.body:", req.body);
-    const userId = req.user.id;
-    const newExpense = await Expense.create({
-      expenseId: uuidv4(),
-      ...req.body,
-      userId,
-    });
-    console.log("✅ [ADD EXPENSE] Added");
-    res.status(201).json(newExpense);
-  } catch (error) {
-    console.error("💥 [ADD EXPENSE] Error:", error);
-    res
-      .status(500)
-      .json({ message: "Error adding expense", error: error.message });
-  }
-});
-
-app.get("/expenses", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const expenses = await Expense.find({ userId });
-    res.json(expenses);
-  } catch (error) {
-    console.error("💥 [GET EXPENSES] Error:", error);
-    res
-      .status(500)
-      .json({ message: "Error fetching expenses", error: error.message });
-  }
-});
-
-app.put("/expenses/:id", authenticateToken, async (req, res) => {
-  try {
-    console.log("➡️ [UPDATE EXPENSE] req.body:", req.body);
-    const userId = req.user.id;
-    const updatedExpense = await Expense.findOneAndUpdate(
-      { _id: req.params.id, userId },
-      req.body,
-      { new: true }
-    );
-    if (!updatedExpense) {
-      console.warn("❌ [UPDATE EXPENSE] Not found or not authorized");
-      return res
-        .status(404)
-        .json({ message: "Expense not found or not authorized" });
-    }
-    console.log("✅ [UPDATE EXPENSE] Updated");
-    res.json(updatedExpense);
-  } catch (error) {
-    console.error("💥 [UPDATE EXPENSE] Error:", error);
-    res
-      .status(500)
-      .json({ message: "Error updating expense", error: error.message });
-  }
-});
-
-app.delete("/expenses/:id", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const deletedExpense = await Expense.findOneAndDelete({
-      _id: req.params.id,
-      userId,
-    });
-    if (!deletedExpense) {
-      console.warn("❌ [DELETE EXPENSE] Not found or not authorized");
-      return res
-        .status(404)
-        .json({ message: "Expense not found or not authorized" });
-    }
-    console.log("✅ [DELETE EXPENSE] Deleted");
-    res.json(deletedExpense);
-  } catch (error) {
-    console.error("💥 [DELETE EXPENSE] Error:", error);
-    res
-      .status(500)
-      .json({ message: "Error deleting expense", error: error.message });
-  }
-});
-
 // ======================= INVENTORY CONTROLLER =======================
 
 app.post("/inventory", authenticateToken, async (req, res) => {
   try {
     console.log("➡️ [ADD INVENTORY] req.body:", req.body);
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const newItem = await Inventory.create({
       inventoryId: uuidv4(),
       ...req.body,
@@ -587,7 +505,7 @@ app.post("/inventory", authenticateToken, async (req, res) => {
 
 app.get("/inventory", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const items = await Inventory.find({ userId });
     res.json(items);
   } catch (error) {
@@ -602,7 +520,7 @@ app.get("/inventory", authenticateToken, async (req, res) => {
 app.put("/inventory/:id", authenticateToken, async (req, res) => {
   try {
     console.log("➡️ [UPDATE INVENTORY] req.body:", req.body);
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const updatedItem = await Inventory.findOneAndUpdate(
       { _id: req.params.id, userId },
       req.body,
@@ -626,7 +544,7 @@ app.put("/inventory/:id", authenticateToken, async (req, res) => {
 
 app.delete("/inventory/:id", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const deletedItem = await Inventory.findOneAndDelete({
       _id: req.params.id,
       userId,
@@ -681,7 +599,7 @@ app.post("/addTasks", authenticateToken, async (req, res) => {
 
 app.get("/getTasks", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const tasks = await Task.find({ userId });
     res.json(tasks);
   } catch (error) {
@@ -695,7 +613,7 @@ app.get("/getTasks", authenticateToken, async (req, res) => {
 app.put("/updateTasks/:id", authenticateToken, async (req, res) => {
   try {
     console.log("➡️ [UPDATE TASK] req.body:", req.body);
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const updatedTask = await Task.findOneAndUpdate(
       { _id: req.params.id, userId },
       req.body,
@@ -719,7 +637,7 @@ app.put("/updateTasks/:id", authenticateToken, async (req, res) => {
 
 app.delete("/deleteTasks/:id", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const deletedTask = await Task.findOneAndDelete({
       _id: req.params.id,
       userId,
